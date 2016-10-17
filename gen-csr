@@ -1,0 +1,47 @@
+#!/bin/bash 
+
+domain=$1 
+commonname=${domain}
+TMPDIR="tmp"
+country="US"
+state="California"
+locality="San Francisco"
+organization="Company Com"
+organizationalunit="Dept."
+email="dept@Company.com"
+year=`date +%Y`
+password="123456"
+
+if [ -z "${domain}" ]; then 
+    echo "Please provide domain!!"
+    echo "Usage: gen-csr <domain>"
+    echo " For domain list,"
+    cat HTTPS.list
+    exit 99 
+fi 
+
+mkdir -p ${TMPDIR}
+rm -rf ${TMPDIR}/*
+
+# Generate a key 
+echo "Generating key request for ${domain}..."
+openssl genrsa -des3 -passout pass:${password} -out ${TMPDIR}/${domain}.${year}.key 2048 -noout 
+
+# Remove passphrease from the key. Comment the line out to keep the passphrase  
+echo "Removing the passphrase from the private key..."
+openssl rsa -in ${TMPDIR}/${domain}.${year}.key -passin pass:${password} -out ${TMPDIR}/${domain}.${year}.key 
+
+# Create the request 
+echo "Creating the CSR..."
+openssl req -new -key ${TMPDIR}/${domain}.${year}.key -out ${TMPDIR}/${domain}.${year}.csr -passin pass:${password} -subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email"
+
+if [ $? -eq 0 ]; then
+    echo "Generated CSR successfully!"
+    echo "Here are the key and CSR information"
+    openssl rsa -in ${TMPDIR}/${domain}.${year}.key -check 
+    openssl req -text -noout -verify -in ${TMPDIR}/${domain}.${year}.csr
+    echo "!!!Please remember to move your key and CSR to safe place as next run will clean those files in ${TMPDIR} folder!!!"
+else 
+    echo "Generate CSR failed!!!"
+    exit 98 
+fi
